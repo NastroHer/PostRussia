@@ -3,6 +3,8 @@ import {PDFNet} from '@pdftron/pdfnet-node';
 import path from 'path';
 import mimeType from './modules/mimeType';
 import fs from 'fs';
+// @ts-ignore
+import libre from 'libreoffice-convert';
 
 import bodyParser from 'body-parser';
 
@@ -74,27 +76,47 @@ app.get('/files/:filename', (req, res) => {
 });
 
 app.get('/convert/:filename', async (req, res) => {
-  await PDFNet.initialize();
-  const filename = req.params.filename;
-  let ext = path.parse(filename).ext;
+  // await PDFNet.initialize();
+  // const filename = req.params.filename;
+  // let ext = path.parse(filename).ext;
 
-  const inputPath = path.resolve(__dirname, filesPath, filename);
-  const outputPath = path.resolve(__dirname, filesPath, `${filename}.pdf`);
+  // const inputPath = path.resolve(__dirname, filesPath, filename);
+  // const outputPath = path.resolve(__dirname, filesPath, `${filename}.pdf`);
 
-  if (ext === '.pdf') {
-    res.statusCode = 500;
-    res.end(`File is already PDF.`);
-    return;
-  }
+  const extend = '.pdf'
+  const enterPath = path.join(__dirname, './files/f.docx');
+  const outputPath = path.join(__dirname, `./files/f${extend}`)
 
-  const main = async () => {
-    const pdfdoc = await PDFNet.PDFDoc.create();
-    await pdfdoc.initSecurityHandler();
-    await PDFNet.Convert.toPdf(pdfdoc, inputPath);
-    await pdfdoc.save(outputPath, PDFNet.SDFDoc.SaveOptions.e_linearized);
-  };
+  // Read file
+  const file = fs.readFileSync(enterPath);
 
-  PDFNetEndpoint(main, outputPath, res);
+  // Convert it to pdf format with undefined filter (see Libreoffice doc about filter)
+  // await libre.convert(file, extend, undefined, (err: any, done: any) => {
+  //   if (err) {
+  //     console.log(`Error converting file: ${err}`);
+  //   }
+  //
+  //   // Here in done you have pdf file which you can save or transfer in another stream
+  //   fs.writeFileSync(outputPath, done)
+  //   console.log('outputPath', outputPath);
+  // });
+
+  await libre.convert(file, extend);
+
+  // if (ext === '.pdf') {
+  //   res.statusCode = 500;
+  //   res.end(`File is already PDF.`);
+  //   return;
+  // }
+  //
+  // const main = async () => {
+  //   const pdfdoc = await PDFNet.PDFDoc.create();
+  //   await pdfdoc.initSecurityHandler();
+  //   await PDFNet.Convert.toPdf(pdfdoc, inputPath);
+  //   await pdfdoc.save(outputPath, PDFNet.SDFDoc.SaveOptions.e_linearized);
+  // };
+  //
+  // PDFNetEndpoint(main, outputPath, res);
 });
 
 app.listen(port, () => {
