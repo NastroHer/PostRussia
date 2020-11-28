@@ -1,0 +1,27 @@
+# See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+
+# dependencies
+.idea/
+node_modules/
+migrations/
+src/configs
+error-file.log
+http-file.log
+info-file.log
+
+# testing
+/coverage
+
+# production
+/build
+
+# misc
+.DS_Store
+.env
+.env.dev
+.env.test
+.env.prod
+
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
