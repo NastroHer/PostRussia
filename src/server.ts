@@ -5,120 +5,57 @@ import mimeType from './modules/mimeType';
 import fs from 'fs';
 // @ts-ignore
 import libre from 'libreoffice-convert';
+// @ts-ignore
+import docxConverter from 'docx-pdf';
 
 import bodyParser from 'body-parser';
 
 import cors from 'cors';
 
 const app: Express = express();
-const port: number = 8000;
-const filesPath = './files';
+const port: number = 7000;
+import multer  from "multer";
+import pool from './database/database';
 const corsOptions = {
   origin: (origin: any, callback: any) => callback(null, true)
 }
+
+const storageConfig = multer.diskStorage({
+  destination: (req, file, cb) =>{
+    cb(null, "./src/files");
+  },
+  filename: (req, file, cb) =>{
+    cb(null, file.originalname);
+  }
+});
+
+const upload = multer({ storage: storageConfig })
 
 app.use( cors(corsOptions) );
 app.use( bodyParser.json() );
 app.use( bodyParser.urlencoded({ extended: true }) );
 
-const PDFNetEndpoint = (main: any, pathname: any, res: any) => {
-  // console.log('pathname', pathname);
-  PDFNet.runWithCleanup(main) // you can add the key to PDFNet.runWithCleanup(main, process.env.PDFTRONKEY)
-    .then(() => {
-      PDFNet.shutdown();
-      fs.readFile(pathname, (err, data) => {
-        if (err) {
-          res.statusCode = 500;
-          // res.end(`Error getting the file: ${err}.`);
-          res.send({error: `Error getting the file: ${err}.`});
-        } else {
-          const ext = path.parse(pathname).ext;
-          // @ts-ignore
-          res.setHeader('Content-type', mimeType[ext] || 'text/plain');
-          // res.end(data);
-          res.send({data})
-        }
-      });
-    })
-    .catch(error => {
-      console.log('error', error.message);
-      res.statusCode = 500;
-      // res.end(error);
-      res.send({error: true});
+app.post('/convert', upload.single('file'), async (req, res) => {
+  try {
+    const file = req.file;
+    const {referenceNumber, theLeader} = await req.body;
+
+    docxConverter(`./src/files/${file.filename}`,'./src/files/f.pdf', async (err: any, result: any) => {
+      await pool.query('INSERT INTO files (created, referenceNumber, theLeader, docFile, pdfFile) VALUES ($1, $2, $3, $4, $5) RETURNING *', [
+        new Date(),
+        referenceNumber,
+        theLeader,
+        `./src/files/${file.filename}`,
+        `./src/files/${file.filename}.pdf`
+      ]);
+
+      return res.send({success: true});
     });
-};
-
-app.get('/files', (req: Request, res: Response) => {
-  const inputPath = path.resolve(__dirname, filesPath);
-
-  fs.readdir(inputPath, function (err, files) {
-    if (err) {
-      return console.log('Unable to scan directory: ' + err);
-    }
-    res.setHeader('Content-type', mimeType['.json']);
-    res.end(JSON.stringify(files));
-  });
-});
-
-app.get('/files/:filename', (req, res) => {
-  const inputPath = path.resolve(__dirname, filesPath, req.params.filename);
-  fs.readFile(inputPath, function (err, data) {
-    if (err) {
-      res.statusCode = 500;
-      res.end(`Error getting the file: ${err}.`);
-    } else {
-      const ext = path.parse(inputPath).ext;
-      // @ts-ignore
-      res.setHeader('Content-type', mimeType[ext] || 'text/plain');
-      res.end(data);
-    }
-  });
-});
-
-app.get('/convert/:filename', async (req, res) => {
-  // await PDFNet.initialize();
-  // const filename = req.params.filename;
-  // let ext = path.parse(filename).ext;
-
-  // const inputPath = path.resolve(__dirname, filesPath, filename);
-  // const outputPath = path.resolve(__dirname, filesPath, `${filename}.pdf`);
-
-  const extend = '.pdf'
-  const enterPath = path.join(__dirname, './files/f.docx');
-  const outputPath = path.join(__dirname, `./files/f${extend}`)
-
-  // Read file
-  const file = fs.readFileSync(enterPath);
-
-  // Convert it to pdf format with undefined filter (see Libreoffice doc about filter)
-  // await libre.convert(file, extend, undefined, (err: any, done: any) => {
-  //   if (err) {
-  //     console.log(`Error converting file: ${err}`);
-  //   }
-  //
-  //   // Here in done you have pdf file which you can save or transfer in another stream
-  //   fs.writeFileSync(outputPath, done)
-  //   console.log('outputPath', outputPath);
-  // });
-
-  await libre.convert(file, extend);
-
-  // if (ext === '.pdf') {
-  //   res.statusCode = 500;
-  //   res.end(`File is already PDF.`);
-  //   return;
-  // }
-  //
-  // const main = async () => {
-  //   const pdfdoc = await PDFNet.PDFDoc.create();
-  //   await pdfdoc.initSecurityHandler();
-  //   await PDFNet.Convert.toPdf(pdfdoc, inputPath);
-  //   await pdfdoc.save(outputPath, PDFNet.SDFDoc.SaveOptions.e_linearized);
-  // };
-  //
-  // PDFNetEndpoint(main, outputPath, res);
+  } catch (e) {
+    return res.send({success: false});
+  }
 });
 
 app.listen(port, () => {
-  console.log('loog')
+  console.log('loog');
 });
